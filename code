@@ -1,0 +1,77 @@
+from flask import Flask, render_template, request, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Mô hình Sách
+class Book(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    author = db.Column(db.String(100), nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+
+# Mô hình Độc giả
+class Reader(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+
+# Mô hình Mượn trả
+class Loan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+    reader_id = db.Column(db.Integer, db.ForeignKey('reader.id'), nullable=False)
+    loan_date = db.Column(db.Date, nullable=False)
+    return_date = db.Column(db.Date)
+
+# Trang chủ hiển thị danh sách sách
+@app.route('/')
+def index():
+    books = Book.query.all()
+    return render_template('index.html', books=books)
+
+# Thêm sách mới
+@app.route('/add_book', methods=['GET', 'POST'])
+def add_book():
+    if request.method == 'POST':
+        title = request.form['title']
+        author = request.form['author']
+        year = request.form['year']
+        new_book = Book(title=title, author=author, year=year)
+        db.session.add(new_book)
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('add_book.html')
+
+# Thêm độc giả mới
+@app.route('/add_reader', methods=['GET', 'POST'])
+def add_reader():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        new_reader = Reader(name=name, email=email)
+        db.session.add(new_reader)
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('add_reader.html')
+
+# Mượn sách
+@app.route('/loan_book/<int:book_id>', methods=['GET', 'POST'])
+def loan_book(book_id):
+    if request.method == 'POST':
+        reader_id = request.form['reader_id']
+        loan_date = request.form['loan_date']
+        new_loan = Loan(book_id=book_id, reader_id=reader_id, loan_date=loan_date)
+        db.session.add(new_loan)
+        db.session.commit()
+        return redirect(url_for('index'))
+    readers = Reader.query.all()
+    return render_template('loan_book.html', book_id=book_id, readers=readers)
+
+# Chạy ứng dụng
+if __name__ == '__main__':
+    db.create_all()  # Tạo các bảng trong cơ sở dữ liệu
+    app.run(debug=True)
